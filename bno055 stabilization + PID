@@ -3,12 +3,14 @@
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 #include <math.h>
-#include "HCPCA9685.h"
+#include <PWMServo.h>
+
 #include <PID_v2.h>
-#define I2CADD 0x40
 
-HCPCA9685 HCPCA9685(I2CADD);
 
+PWMServo rollServo; 
+PWMServo pitchServo;
+PWMServo yawServo;
 
 float q0;
 float q1;
@@ -18,26 +20,26 @@ float q3;
 int temp = 0;
 
 // Specify the links and initial tuning parameters
-double Kp = .5, Ki = 55, Kd = .00001;
+double Kp = 2, Ki = 5, Kd = .00001;
 PID_v2 rollPID(Kp, Ki, Kd, PID::Direct);
 PID_v2 pitchPID(Kp, Ki, Kd, PID::Direct);
 PID_v2 yawPID(Kp, Ki, Kd, PID::Direct);
 
 
 
-#define BNO055_SAMPLERATE_DELAY_MS (100)
+#define BNO055_SAMPLERATE_DELAY_MS (10)
 
 Adafruit_BNO055 myIMU = Adafruit_BNO055();
 
 double rollActual;
 double pitchActual;
 double yawActual;
-double rollServo;
+double rollServoVal;
 double rollTarget;
-double pitchServo;
+double pitchServoVal;
 double pitchTarget;
 double yawTarget;
-double yawServo;
+double yawServoVal;
 
 void setup() {
 
@@ -46,22 +48,22 @@ void setup() {
   delay(1000);
   temp = myIMU.getTemp();
   myIMU.setExtCrystalUse(true);
+  
+  rollServo.attach(0, 1000, 2000);
+  pitchServo.attach(1, 1000, 2000);
+  yawServo.attach(2, 1000, 2000);
 
-  //rollPID.SetOutputLimits(-180, 180);
+  //rollPID.SetOutputLimits(0, 180);
 
   rollPID.Start(rollActual,    // input/IMU Data
-                rollServo,     // Servo Command
+                rollServoVal,     // Servo Command
                 rollTarget);   // setpoint
   pitchPID.Start(pitchActual,   // input/IMU Data
-                pitchServo,    // Servo Command
+                pitchServoVal,    // Servo Command
                 pitchTarget);  // setpoint
   yawPID.Start(yawActual,      // input/IMU Data
-               yawServo,       // Servo Command
+               yawServoVal,       // Servo Command
                yawTarget);     // setpoint
-
-  HCPCA9685.Init(SERVO_MODE);
-
-  HCPCA9685.Sleep(false);
 }
 
 void loop() {
@@ -79,17 +81,21 @@ void loop() {
   pitchActual = pitchActual / (2 * 3.141592654) * 360;
   yawActual = yawActual / (2 * 3.141592654) * 360;
 
-rollPID.SetOutputLimits(0, 180);
-pitchPID.SetOutputLimits(0, 180);
-yawPID.SetOutputLimits(0, 180);
+rollPID.SetOutputLimits(-180, 180);
+pitchPID.SetOutputLimits(-180, 180);
+yawPID.SetOutputLimits(-180, 180);
 
-  double rollServo = rollPID.Run(rollActual);
-  double pitchServo = pitchPID.Run(pitchActual);
-  double yawServo = yawPID.Run(yawActual);
+  double rollServoVal = rollPID.Run(rollActual);
+  double pitchServoVal = pitchPID.Run(pitchActual);
+  double yawServoVal = yawPID.Run(yawActual);
 
-  HCPCA9685.Servo(0, rollServo);
-  HCPCA9685.Servo(1, pitchServo);
-  HCPCA9685.Servo(2, yawServo);
+  //rollServo.write(rollServoVal);
+  rollServo.write(rollServoVal);
+  delay(20);
+  pitchServo.write(pitchServoVal);
+  delay(20);
+  yawServo.write(yawServoVal);
+  delay(20);
 
   Serial.print(rollTarget);
   Serial.print(",");
@@ -111,11 +117,11 @@ yawPID.SetOutputLimits(0, 180);
   Serial.print(",");
   Serial.print(system);
   Serial.print(",");
-  Serial.print(rollServo);
+  Serial.print(rollServoVal);
   Serial.print(",");
-  Serial.print(pitchServo);
+  Serial.print(pitchServoVal);
   Serial.print(",");
-  Serial.println(yawServo);
+  Serial.println(yawServoVal);
 
   delay(BNO055_SAMPLERATE_DELAY_MS);
 }
